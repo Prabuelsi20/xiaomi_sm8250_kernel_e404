@@ -1,7 +1,16 @@
-name: Build E404 Kernel (staging)
+name: Build E404 Kernel
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to compile"
+        type: choice
+        required: true
+        default: staging
+        options:
+          - staging
+          - main
   push:
     branches:
       - staging
@@ -14,6 +23,10 @@ jobs:
     steps:
       - name: Checkout Kernel Source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Clone KernelSU
         run: |
@@ -83,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: E404-alioth-Kernel
+          name: E404-alioth-Kernel-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
           path: |
             out/*.zip
             out/kernel_compile.log
