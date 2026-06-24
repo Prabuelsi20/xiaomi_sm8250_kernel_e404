@@ -1,0 +1,125 @@
+name: PROJECT LUCY Kernel Build
+
+on:
+  workflow_dispatch:
+
+env:
+  ARCH: arm64
+  SUBARCH: arm64
+  LLVM: 1
+  LLVM_IAS: 1
+  CC: clang-18
+  HOSTCC: clang-18
+  HOSTCXX: clang++-18
+  LD: ld.lld-18
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install dependencies + LLVM 18
+        run: |
+          sudo apt update
+          sudo apt install -y wget git bc bison flex build-essential \
+            libssl-dev libncurses5-dev libelf-dev dwarves zip rsync
+
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+
+      # ----------------------------
+      # KERNELSU FIX (IMPORTANT)
+      # ----------------------------
+      - name: Fix missing KernelSU Kconfig
+        run: |
+          echo "Checking KernelSU..."
+
+          if [ ! -f drivers/kernelsu/Kconfig ]; then
+            echo "KernelSU Kconfig missing -> patching drivers/Kconfig"
+
+            sed -i '/drivers\/kernelsu\/Kconfig/d' drivers/Kconfig || true
+          fi
+
+          echo "KernelSU fix applied"
+
+      # ----------------------------
+      # DEBUG FLAGS (optional but useful)
+      # ----------------------------
+      - name: Debug bad flags
+        run: |
+          grep -R "armv8.2-a+lse+crypto+dotprod" . || true
+          grep -R "cortex-a55" . || true
+
+      # ----------------------------
+      # CONFIGURE
+      # ----------------------------
+      - name: Configure kernel
+        run: |
+          mkdir -p out
+
+          # CHANGE THIS if needed
+          make O=out ARCH=arm64 defconfig
+
+      # ----------------------------
+      # BUILD
+      # ----------------------------
+      - name: Build kernel
+        run: |
+          make -j$(nproc) \
+            O=out \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            CC=clang-18 \
+            HOSTCC=clang-18 \
+            HOSTCXX=clang++-18 \
+            LD=ld.lld-18 \
+            2>&1 | tee build.log
+
+      # ----------------------------
+      # VERIFY OUTPUT
+      # ----------------------------
+      - name: Check output
+        if: always()
+        run: |
+          find out -type f \( -name "Image" -o -name "Image.gz" -o -name "Image.gz-dtb" \) || true
+
+      # ----------------------------
+      # PACKAGE
+      # ----------------------------
+      - name: Package kernel
+        if: always()
+        run: |
+          mkdir -p release
+
+          IMG=$(find out -type f \( -name "Image" -o -name "Image.gz" -o -name "Image.gz-dtb" \) | head -n 1)
+
+          if [ -z "$IMG" ]; then
+            echo "BUILD FAILED - no kernel image"
+            tail -n 200 build.log || true
+            exit 1
+          fi
+
+          cp "$IMG" release/
+
+          find out -type f -name "*.dtb" -exec cp {} release/ \; || true
+          find out -type f -name "*.dtbo*" -exec cp {} release/ \; || true
+
+          cd release
+          zip -r PROJECT-LUCY-Kernel.zip .
+
+      # ----------------------------
+      # UPLOAD
+      # ----------------------------
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PROJECT-LUCY-Kernel
+          path: release/
