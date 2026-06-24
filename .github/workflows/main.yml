@@ -1,0 +1,47 @@
+name: Build E404 Kernel (Alioth)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+          bc bison build-essential ccache curl flex git \
+          libssl-dev libelf-dev lzop python3 zip unzip
+
+      - name: Clone LLVM Clang
+        run: |
+          git clone --depth=1 https://github.com/ZyCromerZ/Clang llvm-clang
+
+      - name: Add Clang to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/llvm-clang/bin" >> $GITHUB_PATH
+
+      - name: Generate Defconfig
+        run: |
+          make O=out vendor/alioth_defconfig
+
+      - name: Build Kernel
+        run: |
+          make -j$(nproc) O=out \
+          CC=clang \
+          LLVM=1 \
+          LLVM_IAS=1
+
+      - name: Upload Kernel Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: alioth-kernel
+          path: |
+            out/arch/arm64/boot/Image
+            out/arch/arm64/boot/dtb
+            out/arch/arm64/boot/dtbo.img
