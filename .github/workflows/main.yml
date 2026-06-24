@@ -8,54 +8,37 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout Source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Clone KernelSU
         run: |
           rm -rf KernelSU
           git clone --depth=1 https://github.com/tiann/KernelSU.git KernelSU
 
-      - name: Verify KernelSU
-        run: |
-          ls -la KernelSU
-          ls -la KernelSU/kernel
-          ls -la drivers/kernelsu
-
       - name: Install Dependencies
         run: |
           sudo apt update
           sudo apt install -y \
-            bc \
-            bison \
-            build-essential \
-            ccache \
-            curl \
-            flex \
-            git \
-            libssl-dev \
-            libelf-dev \
-            lzop \
-            python3 \
-            zip \
-            unzip \
-            clang \
-            lld \
-            gcc-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabi
+            bc bison build-essential flex git curl \
+            libssl-dev libelf-dev python3 zip unzip \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
-      - name: Check Compiler
+      - name: Clone Neutron Clang
         run: |
-          which clang
-          clang --version
-          which aarch64-linux-gnu-gcc
-          which arm-linux-gnueabi-gcc
-          uname -m
+          git clone --depth=1 https://github.com/Neutron-Toolchains/clang clang
 
-      - name: Generate Defconfig
+      - name: Add Toolchain
+        run: |
+          echo "$GITHUB_WORKSPACE/clang/bin" >> $GITHUB_PATH
+
+      - name: Generate Config
         run: |
           make O=out ARCH=arm64 vendor/alioth_defconfig
-          make O=out ARCH=arm64 olddefconfig
+          yes "" | make O=out ARCH=arm64 oldconfig
+
+      - name: Show Compiler
+        run: |
+          clang --version
 
       - name: Build Kernel
         run: |
@@ -63,17 +46,15 @@ jobs:
             O=out \
             ARCH=arm64 \
             CC=clang \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
             LLVM=1 \
-            LLVM_IAS=1
+            LLVM_IAS=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
 
-      - name: Upload Kernel Files
+      - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: alioth-kernel
+          name: build-logs
           path: |
-            out/arch/arm64/boot/Image
-            out/arch/arm64/boot/dtb
-            out/arch/arm64/boot/dtbo.img
+            out
