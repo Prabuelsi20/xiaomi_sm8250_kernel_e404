@@ -4226,17 +4226,30 @@
 
 &cpufreq_hw {
 	interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
-		   <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>,
-		   <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+		     <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
 	interrupt-names = "dcvsh0_int", "dcvsh1_int", "dcvsh2_int";
 
-		/* effcpu freqtable */
-		qcom,effcpufreq-table-0 =
+	/* effcpu freqtable */
+	qcom,effcpufreq-table-0 =
+			< 300000>,
+			< 403200>,
+			< 499200>,
+			< 576000>,
+			< 652800>,
+			< 748800>,
+			< 825600>,
+			< 902400>,
+			< 979200>,
+			<1075200>,
 			<1171200>,
+			<1248000>,
 			<1344000>,
 			<1420800>,
+			<1516800>,
 			<1612800>,
-			<1708800>;
+			<1708800>,
+			<1804800>;
 
 	qcom,effcpufreq-table-1 =
 			< 825600>,
@@ -4272,6 +4285,16 @@
 
 	/* normal freqtable */
 	qcom,cpufreq-table-0 =
+			< 300000>,
+			< 403200>,
+			< 499200>,
+			< 576000>,
+			< 652800>,
+			< 748800>,
+			< 825600>,
+			< 902400>,
+			< 979200>,
+			<1075200>,
 			<1171200>,
 			<1248000>,
 			<1344000>,
