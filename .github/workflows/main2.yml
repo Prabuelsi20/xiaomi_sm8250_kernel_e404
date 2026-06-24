@@ -1,7 +1,7 @@
 name: Build Kernel (alioth) 2
 
 on:
-  workflow_dispatch: # Позволяет запускать сборку вручную через вкладку Actions на GitHub
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,12 +12,18 @@ jobs:
       - name: Checkout Kernel Source
         uses: actions/checkout@v4
 
+      - name: Clone KernelSU
+        run: |
+          rm -rf KernelSU
+          git clone --depth=1 https://github.com/tiann/KernelSU.git KernelSU
+
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential bc bison flex libssl-dev libelf-dev \
-            ccache zip unzip curl git make clang lld
+            ccache zip unzip curl git make clang lld \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
       - name: Cache Neutron Clang
         id: cache-toolchain
@@ -48,26 +54,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ccache-
 
-      - name: Build kptools from KernelPatch master
-        run: |
-          git clone --depth=1 https://github.com/bmax121/KernelPatch.git ../KernelPatch
-          cd ../KernelPatch/tools
-          sed -i 's/if (info->version.major < 4 || (info->version.major == 4 \&\& info->version.minor < 20))/if (0)/' kallsym.c
-          cd ../kernel
-          export TARGET_COMPILE=placeholder
-          make hdr
-          cd ../tools
-          make -j$(nproc)
-          cp kptools "$GITHUB_WORKSPACE/kptools-linux"
-          chmod +x "$GITHUB_WORKSPACE/kptools-linux"
-
-      - name: Download APatch kpimg
-        run: |
-          curl -sLo kpimg-android "https://github.com/bmax121/KernelPatch/releases/download/0.13.1/kpimg-android"
-
       - name: Setup AnyKernel3
         run: |
-          git clone https://github.com/osm0sis/AnyKernel3.git ../AnyKernel3
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ../AnyKernel3
+
+      - name: Create Telegram Config
+        run: |
+          cat > ../telegram_api <<'EOF'
+          BOT_TOKEN=dummy
+          GROUP_ID=0
+          CHANNEL_ID=0
+          PRIVATE_ID=0
+          EOF
+          echo "GitHub Actions build" > ../kernel_changelog.txt
 
       - name: Build Kernel
         run: |
@@ -77,7 +76,10 @@ jobs:
           bash compile.sh alioth neutron
 
       - name: Upload Kernel Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: E404-alioth-Kernel
-          path: out/*.zip
+          path: |
+            out/*.zip
+            out/kernel_compile.log
