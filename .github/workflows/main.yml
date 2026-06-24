@@ -10,42 +10,62 @@ jobs:
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
+
+      - name: Clone KernelSU
+        run: |
+          rm -rf KernelSU
+          git clone --depth=1 https://github.com/tiann/KernelSU.git KernelSU
 
       - name: Verify KernelSU
         run: |
-          echo "=== KernelSU ==="
-          ls -la KernelSU || true
-          ls -la KernelSU/kernel || true
-          ls -la drivers/kernelsu || true
+          ls -la KernelSU
+          ls -la KernelSU/kernel
+          ls -la drivers/kernelsu
 
       - name: Install Dependencies
         run: |
           sudo apt update
           sudo apt install -y \
-          bc bison build-essential ccache curl flex git \
-          libssl-dev libelf-dev lzop python3 zip unzip
+            bc \
+            bison \
+            build-essential \
+            ccache \
+            curl \
+            flex \
+            git \
+            libssl-dev \
+            libelf-dev \
+            lzop \
+            python3 \
+            zip \
+            unzip \
+            clang \
+            lld \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi
 
-      - name: Clone LLVM Clang
+      - name: Check Compiler
         run: |
-          git clone --depth=1 https://github.com/ZyCromerZ/Clang llvm-clang
-
-      - name: Add Clang to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/llvm-clang/bin" >> $GITHUB_PATH
+          which clang
+          clang --version
+          which aarch64-linux-gnu-gcc
+          which arm-linux-gnueabi-gcc
+          uname -m
 
       - name: Generate Defconfig
         run: |
-          make O=out vendor/alioth_defconfig
+          make O=out ARCH=arm64 vendor/alioth_defconfig
 
       - name: Build Kernel
         run: |
-          make -j$(nproc) O=out \
-          CC=clang \
-          LLVM=1 \
-          LLVM_IAS=1
+          make -j$(nproc) \
+            O=out \
+            ARCH=arm64 \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            LLVM=1 \
+            LLVM_IAS=1
 
       - name: Upload Kernel Files
         uses: actions/upload-artifact@v4
